@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filament-Verwaltung · Bambu Lab P2S</title>
+<style>
+  :root {
+    --bg: #f3f4f1; --card: #ffffff; --text: #1b1f1d; --muted: #5d6662; --line: #d9ddd9;
+    --accent: #0a8f5b; --accent-text: #ffffff;
+    --yellow-bg: #fff3bf; --yellow-line: #e0a800; --yellow-text: #5c4400;
+    --red-bg: #ffe0e0; --red-line: #d92626; --red-text: #7a0f0f;
+    --track: #e6e9e6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151816; --card: #1f2421; --text: #eef1ee; --muted: #a3ada8; --line: #353c38;
+      --accent: #19b877; --accent-text: #06170f;
+      --yellow-bg: #3d3410; --yellow-line: #e0a800; --yellow-text: #ffe58a;
+      --red-bg: #451717; --red-line: #ff5c5c; --red-text: #ffc9c9;
+      --track: #2c322f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 20px/1.45 "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  h1 { font-size: 34px; margin: 0; line-height: 1.15; }
+  h1 small { display: block; font-size: 18px; font-weight: 400; color: var(--muted); margin-top: 4px; }
+  h2 { font-size: 28px; margin: 0 0 16px; }
+
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border-radius: 12px;
+    border: 2px solid var(--line); background: var(--card); color: var(--text);
+    padding: 12px 20px; min-height: 54px;
+  }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.big { font-size: 22px; padding: 14px 26px; min-height: 62px; }
+  button.small { font-size: 17px; min-height: 44px; padding: 8px 14px; font-weight: 500; }
+  button.danger:hover { border-color: var(--red-line); color: var(--red-line); }
+
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; }
+  .stat .label { color: var(--muted); font-size: 17px; }
+  .stat .value { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .sec-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 28px 0 14px; }
+  .sec-head h2 { margin: 0; }
+  .picon { width: 60px; height: 60px; border-radius: 14px; background: var(--track); flex: none; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .printer label { margin: 0 0 -6px; color: var(--muted); font-weight: 500; }
+  .slots { display: grid; gap: 6px; }
+  .slot { display: flex; gap: 8px; align-items: center; }
+  .slot span { width: 30px; flex: none; text-align: center; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .slot select { font-size: 18px; min-height: 46px; padding: 6px 10px; min-width: 0; }
+  #list, #printers { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .spool, .printer { background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .spool.warn { border-color: var(--yellow-line); }
+  .spool.crit { border-color: var(--red-line); }
+  .top { display: flex; gap: 14px; align-items: center; }
+  .swatch { width: 60px; height: 60px; border-radius: 50%; border: 3px solid var(--line); flex: none; }
+  .title { font-size: 26px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+  .sub { color: var(--muted); overflow-wrap: anywhere; }
+  .rest { font-size: 40px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .rest span { font-size: 20px; font-weight: 400; color: var(--muted); }
+  .bar { height: 16px; background: var(--track); border-radius: 8px; overflow: hidden; }
+  .bar div { height: 100%; background: var(--accent); border-radius: 8px; }
+  .warn .bar div { background: var(--yellow-line); }
+  .crit .bar div { background: var(--red-line); }
+  .badge { border-radius: 10px; padding: 10px 14px; font-weight: 700; border: 2px solid; }
+  .badge.warn { background: var(--yellow-bg); border-color: var(--yellow-line); color: var(--yellow-text); }
+  .badge.crit { background: var(--red-bg); border-color: var(--red-line); color: var(--red-text); }
+  .facts { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-variant-numeric: tabular-nums; }
+  .facts dt { color: var(--muted); } .facts dd { margin: 0; text-align: right; font-weight: 600; }
+  .last { color: var(--muted); font-size: 17px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+  .actions .primary { flex: 1 1 100%; }
+  .actions .small { flex: 1; }
+  .empty { background: var(--card); border: 2px dashed var(--line); border-radius: 16px; padding: 40px 20px; text-align: center; color: var(--muted); font-size: 22px; }
+  footer { margin-top: 32px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 17px; }
+
+  dialog { border: none; border-radius: 18px; padding: 26px; width: min(560px, calc(100vw - 24px)); background: var(--card); color: var(--text); font: inherit; }
+  dialog::backdrop { background: rgba(0,0,0,.55); }
+  label { display: block; font-weight: 600; margin: 14px 0 6px; }
+  input[type=text], select {
+    width: 100%; font: inherit; font-size: 22px; padding: 12px 14px; min-height: 56px;
+    border: 2px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--text);
+  }
+  input[type=color] { width: 72px; height: 56px; padding: 4px; border: 2px solid var(--line); border-radius: 12px; background: var(--bg); flex: none; cursor: pointer; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; min-width: 0; }
+  .extra { margin-top: 8px; }
+  .hint { color: var(--muted); font-size: 18px; margin-top: 10px; min-height: 26px; }
+  .error { color: var(--red-line); font-weight: 600; min-height: 28px; margin-top: 10px; }
+  .dlg-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .dlg-actions button { flex: 1; }
+  .head-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  #scanVideo { width: 100%; aspect-ratio: 4 / 3; background: #000; border-radius: 12px; object-fit: cover; display: block; }
+  .scanbox { position: relative; background: #000; border-radius: 12px; overflow: hidden; }
+  .scanbox video, .scanbox img { max-height: 46vh; }
+  #scanPhoto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .scanbox.nocam { display: none; }
+  .photo-btn { width: 100%; margin-top: 10px; }
+  .scanline { position: absolute; left: 8%; right: 8%; top: 50%; height: 3px; background: #ff3b3b; box-shadow: 0 0 8px #ff3b3b; border-radius: 2px; pointer-events: none; }
+  .scanbox.hit .scanline { background: #19e68c; box-shadow: 0 0 12px #19e68c; }
+  .scan-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .scan-tools select { flex: 1 1 220px; font-size: 18px; min-height: 44px; padding: 6px 10px; }
+  .scan-tools .zoom { display: flex; align-items: center; gap: 8px; margin: 0; flex: 1 1 180px; font-weight: 500; }
+  .scan-tools .zoom input { flex: 1; min-width: 0; }
+  .row.end { align-items: flex-end; }
+  .row.end button { flex: none; min-height: 56px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Filament-Verwaltung<small>Bambu Lab P2S</small></h1>
+    <div class="head-actions">
+      <button class="big" id="btnScan">▦ Barcode scannen</button>
+      <button class="primary big" id="btnNew">+ Neue Spule</button>
+    </div>
+  </header>
+
+  <section class="summary" id="summary"></section>
+
+  <div class="sec-head">
+    <h2>Drucker</h2>
+    <button id="btnNewPrinter">+ Neuer Drucker</button>
+  </div>
+  <section id="printers"></section>
+
+  <div class="sec-head"><h2>Spulen</h2></div>
+  <section id="list"></section>
+
+  <footer>
+    <span>Die Daten werden nur in diesem Browser gespeichert.</span>
+    <button class="small" id="btnExport">Sicherung speichern</button>
+    <button class="small" id="btnImport">Sicherung laden</button>
+    <input type="file" id="fileImport" accept="application/json,.json" hidden>
+  </footer>
+</main>
+
+<!-- Spule anlegen / bearbeiten -->
+<dialog id="dlgSpool">
+  <form id="formSpool" novalidate>
+    <h2 id="spoolTitle">Neue Spule</h2>
+
+    <label for="fMaterial">Material</label>
+    <select id="fMaterial"></select>
+    <input class="extra" type="text" id="fMaterialCustom" placeholder="Eigenes Material, z. B. PLA-CF" hidden>
+
+    <label for="fColorName">Farbe</label>
+    <div class="row">
+      <input type="color" id="fColorHex" value="#1e88e5" aria-label="Farbton wählen">
+      <div><input type="text" id="fColorName" placeholder="z. B. Blau matt"></div>
+    </div>
+
+    <label for="fMaker">Hersteller</label>
+    <select id="fMaker"></select>
+    <input class="extra" type="text" id="fMakerCustom" placeholder="Name des Herstellers" hidden>
+
+    <div class="row">
+      <div>
+        <label for="fInitial">Anfangsgewicht (g)</label>
+        <input type="text" inputmode="decimal" id="fInitial" value="1000">
+      </div>
+      <div>
+        <label for="fPrice">Preis (€)</label>
+        <input type="text" inputmode="decimal" id="fPrice" placeholder="z. B. 19,99">
+      </div>
+    </div>
+
+    <label for="fBarcode">Barcode (optional)</label>
+    <div class="row end">
+      <div><input type="text" inputmode="numeric" id="fBarcode" placeholder="Nummer von der Verpackung" autocomplete="off"></div>
+      <button type="button" id="btnScanField">▦ Scannen</button>
+    </div>
+
+    <div class="error" id="spoolError" role="alert"></div>
+    <div class="dlg-actions">
+      <button type="button" data-close>Abbrechen</button>
+      <button type="submit" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Drucker anlegen / bearbeiten -->
+<dialog id="dlgPrinter">
+  <form id="formPrinter" novalidate>
+    <h2 id="printerTitle">Neuer Drucker</h2>
+
+    <label for="fPBrand">Hersteller</label>
+    <select id="fPBrand"></select>
+    <input class="extra" type="text" id="fPBrandCustom" placeholder="Name des Herstellers" autocomplete="off" hidden>
+
+    <label for="fPModel">Modell</label>
+    <select id="fPModel"></select>
+    <input class="extra" type="text" id="fPModelCustom" placeholder="Modellbezeichnung" autocomplete="off" hidden>
+
+    <label for="fPName">Eigener Name (optional)</label>
+    <input type="text" id="fPName" placeholder="z. B. Drucker Werkstatt" autocomplete="off">
+
+    <label for="fPAms" id="fPAmsLabel">AMS angeschlossen?</label>
+    <select id="fPAms">
+      <option value="0">Nein – eine Spule</option>
+      <option value="1">Ja – mehrere Spulen</option>
+    </select>
+    <div id="fPSlotsWrap" hidden>
+      <label for="fPSlots">Anzahl Spulenplätze (2 bis 20)</label>
+      <input type="text" inputmode="numeric" id="fPSlots" value="4" autocomplete="off">
+    </div>
+    <div class="hint">Die eingelegten Spulen trägst du danach auf der Druckerkarte ein.</div>
+
+    <div class="error" id="printerError" role="alert"></div>
+    <div class="dlg-actions">
+      <button type="button" data-close>Abbrechen</button>
+      <button type="submit" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Barcode scannen -->
+<dialog id="dlgScan">
+  <form id="formScan" novalidate>
+    <h2>Barcode scannen</h2>
+    <div class="scanbox">
+      <video id="scanVideo" playsinline autoplay muted></video>
+      <img id="scanPhoto" alt="Aufgenommenes Foto" hidden>
+      <div class="scanline"></div>
+    </div>
+    <button type="button" class="photo-btn" id="scanPhotoBtn">📷 Foto vom Barcode aufnehmen</button>
+    <input type="file" id="scanFile" accept="image/*" capture="environment" hidden>
+    <div class="hint" id="scanStatus"></div>
+    <div class="scan-tools">
+      <select id="scanCam" aria-label="Kamera wählen" hidden></select>
+      <button type="button" class="small" id="scanTorch" hidden>💡 Licht</button>
+      <label class="zoom" id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom"></label>
+    </div>
+    <label for="fScanManual">Oder Nummer eintippen / Handscanner benutzen</label>
+    <input type="text" inputmode="numeric" id="fScanManual" autocomplete="off">
+    <div class="dlg-actions">
+      <button type="button" data-close>Abbrechen</button>
+      <button type="submit" class="primary">Übernehmen</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Verbrauch abbuchen -->
+<dialog id="dlgUse">
+  <form id="formUse" novalidate>
+    <h2>Verbrauch abbuchen</h2>
+    <div id="usePrinterWrap">
+      <label for="fUsePrinter">Drucker</label>
+      <select id="fUsePrinter"></select>
+    </div>
+    <label for="fUseSpool">Spule</label>
+    <select id="fUseSpool"></select>
+    <div class="hint" id="useInfo"></div>
+    <label for="fUse">Verbrauch nach dem Druck (g)</label>
+    <input type="text" inputmode="decimal" id="fUse" placeholder="z. B. 42,5" autocomplete="off">
+    <div class="hint" id="useHint"></div>
+    <div class="error" id="useError" role="alert"></div>
+    <div class="dlg-actions">
+      <button type="button" data-close>Abbrechen</button>
+      <button type="submit" class="primary">Abbuchen</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  'use strict';
+  var KEY = 'filament-verwaltung-v1';
+  var MATERIALS = ['PLA', 'PETG', 'TPU', 'ABS'];
+  var MAKERS = ['Bambu Lab', 'Eryone', 'Geeetech', 'Cailab', 'Deeple', 'eSun', 'Overture', 'GiantArm'];
+  var CUSTOM = '__custom__';
+  var WARN = 200, CRIT = 50, MAX_SLOTS = 20;
+  // Druckerhersteller mit Modellen und dem Namen ihres Mehrfarbsystems
+  var GENERIC_SYSTEM = 'Mehrfarbsystem';
+  var PRINTER_BRANDS = [
+    { name: 'Bambu Lab', system: 'AMS', models: ['P2S', 'P1S', 'P1P', 'X2D', 'X1 Carbon', 'X1E', 'X1', 'A1', 'A1 mini', 'A2L', 'H2S', 'H2D', 'H2D Pro', 'H2C', 'H3C'] },
+    { name: 'Creality', system: 'CFS', models: ['K2 Plus', 'K2 Pro', 'K2', 'K2 SE', 'K1', 'K1C', 'K1 Max', 'K1 SE', 'Hi', 'SPARKX i7', 'Ender-3 V4', 'Ender-3 V3', 'Ender-3 V3 Plus', 'Ender-3 V3 KE', 'Ender-3 V3 SE', 'Ender-3 S1', 'Ender-3 S1 Pro', 'Ender-3 V2', 'Ender-3', 'Ender-5 S1', 'Ender-5 Max', 'CR-10 SE'] },
+    { name: 'Anycubic', system: 'ACE Pro', models: ['Kobra S1', 'Kobra S1 Max', 'Kobra X', 'Kobra 3', 'Kobra 3 V2', 'Kobra 3 Max', 'Kobra 2', 'Kobra 2 Pro', 'Kobra 2 Plus', 'Kobra 2 Max', 'Kobra 2 Neo', 'Kobra Neo', 'Kobra Go'] },
+    { name: 'Prusa', system: 'MMU3', models: ['CORE One', 'CORE One+', 'CORE One L', 'MK4S', 'MK4', 'MK3.9', 'MK3S+', 'MINI+', 'XL'] },
+    { name: 'Elegoo', system: 'CANVAS', models: ['Centauri Carbon 2', 'Centauri 2', 'Centauri Carbon', 'Centauri', 'Neptune 4', 'Neptune 4 Pro', 'Neptune 4 Plus', 'Neptune 4 Max', 'Neptune 3 Pro', 'OrangeStorm Giga'] },
+    { name: 'QIDI', system: 'QIDI Box', models: ['Q2', 'Q2C', 'Plus4', 'Plus5', 'Max4', 'Q1 Pro', 'X-Max 3', 'X-Plus 3', 'X-Smart 3'] },
+    { name: 'Flashforge', system: 'IFS', models: ['AD5X', 'Adventurer 5M', 'Adventurer 5M Pro', 'Guider 3'] },
+    { name: 'Sovol', system: GENERIC_SYSTEM, models: ['SV08', 'SV08 Max', 'SV07', 'SV06', 'SV06 Plus', 'Zero'] }
+  ];
+  function brandInfo(name) { return PRINTER_BRANDS.filter(function (b) { return b.name === name; })[0] || null; }
+  function fullModel(p) { return ((p.brand || '') + ' ' + (p.model || '')).trim(); }
+  function sysName(p) { var b = brandInfo(p.brand); return b ? b.system : GENERIC_SYSTEM; }
+
+  var state = load();
+  var editId = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- Speicher ----------
+  function clean(data) {
+    var s = { spools: [], makers: [], materials: [], printers: [] };
+    // Ohne gespeicherte Drucker gibt es zum Start den P2S
+    var firstPrinter = function () { return { id: newId(), name: 'Bambu Lab P2S', brand: 'Bambu Lab', model: 'P2S', ams: false, slots: [''], lastSpoolId: '', usedG: 0, cost: 0, prints: 0 }; };
+    if (!data || typeof data !== 'object') { s.printers.push(firstPrinter()); return s; }
+    if (Array.isArray(data.makers)) s.makers = data.makers.filter(isStr);
+    if (Array.isArray(data.materials)) s.materials = data.materials.filter(isStr);
+    if (Array.isArray(data.spools)) data.spools.forEach(function (p) {
+      if (!p || !(p.initial > 0)) return;
+      s.spools.push({
+        id: String(p.id || newId()),
+        material: String(p.material || '?'),
+        colorName: String(p.colorName || ''),
+        colorHex: /^#[0-9a-f]{6}$/i.test(p.colorHex) ? p.colorHex : '#888888',
+        maker: String(p.maker || '?'),
+        barcode: String(p.barcode || ''),
+        initial: +p.initial,
+        price: +p.price >= 0 ? +p.price : 0,
+        used: Math.min(Math.max(+p.used || 0, 0), +p.initial),
+        log: Array.isArray(p.log) ? p.log.filter(function (l) { return l && l.g > 0; }).map(function (l) { return { t: +l.t || 0, g: +l.g, p: l.p ? String(l.p) : '', c: +l.c || 0 }; }) : []
+      });
+    });
+    if (Array.isArray(data.printers)) {
+      var taken = {};
+      data.printers.forEach(function (p) {
+        if (!p || !isStr(p.name)) return;
+        // Ohne AMS ein Platz, mit AMS 2 bis 20 Plätze; jede Spule höchstens einmal
+        var ams = !!p.ams, raw = Array.isArray(p.slots) ? p.slots : [p.spoolId];
+        var count = ams ? Math.min(MAX_SLOTS, Math.max(2, raw.length)) : 1, slots = [];
+        for (var i = 0; i < count; i++) {
+          var id = raw[i] ? String(raw[i]) : '';
+          var ok = !!id && !taken[id] && s.spools.some(function (x) { return x.id === id; });
+          if (ok) taken[id] = true;
+          slots.push(ok ? id : '');
+        }
+        // Ältere Daten kennen nur „Modell“: Hersteller am Anfang erkennen und abtrennen
+        var brand = isStr(p.brand) ? String(p.brand) : '', model = String(p.model || '');
+        if (!brand && model) PRINTER_BRANDS.forEach(function (b) {
+          if (!brand && model.toLowerCase().indexOf(b.name.toLowerCase()) === 0) { brand = b.name; model = model.slice(b.name.length).trim(); }
+        });
+        s.printers.push({
+          id: String(p.id || newId()),
+          name: String(p.name),
+          brand: brand,
+          model: model,
+          ams: ams,
+          slots: slots,
+          lastSpoolId: String(p.lastSpoolId || ''),
+          usedG: +p.usedG > 0 ? +p.usedG : 0,
+          cost: +p.cost > 0 ? +p.cost : 0,
+          prints: +p.prints > 0 ? Math.round(+p.prints) : 0
+        });
+      });
+    } else s.printers.push(firstPrinter());
+    return s;
+  }
+  function isStr(x) { return typeof x === 'string' && x.trim() !== ''; }
+  function load() {
+    try { return clean(JSON.parse(localStorage.getItem(KEY))); } catch (e) { return clean(null); }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { alert('Speichern im Browser nicht möglich. Bitte Browser-Einstellungen prüfen.'); }
+  }
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+  // ---------- Hilfen ----------
+  var nfG = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
+  var nfE = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
+  var dfD = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  function g(n) { return nfG.format(Math.round(n * 10) / 10) + ' g'; }
+  function eur(n) { return nfE.format(n); }
+  function num(s) {
+    s = String(s).trim().replace(/\s/g, '').replace(',', '.');
+    return /^\d+(\.\d+)?$/.test(s) ? parseFloat(s) : NaN;
+  }
+  function round1(n) { return Math.round(n * 10) / 10; }
+  function costOf(sp, grams) { return sp.initial > 0 ? sp.price * grams / sp.initial : 0; }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function find(id) { return state.spools.filter(function (s) { return s.id === id; })[0]; }
+  function findPrinter(id) { return state.printers.filter(function (p) { return p.id === id; })[0] || null; }
+  function printerOf(spoolId) { return state.printers.filter(function (p) { return p.slots.indexOf(spoolId) >= 0; })[0] || null; }
+  function unloadSpool(spoolId) {
+    state.printers.forEach(function (p) {
+      p.slots = p.slots.map(function (id) { return id === spoolId ? '' : id; });
+    });
+  }
+  // Eine Spule kann nur an einem Platz in einem Drucker eingelegt sein
+  function setSlot(printer, idx, spoolId) {
+    if (spoolId) unloadSpool(spoolId);
+    printer.slots[idx] = spoolId || '';
+  }
+  // Wo die Spule liegt, z. B. „Bambu Lab P2S, Platz 3“
+  function whereLoaded(spoolId) {
+    var p = printerOf(spoolId);
+    if (!p) return '';
+    return p.name + (p.ams ? ', Platz ' + (p.slots.indexOf(spoolId) + 1) : '');
+  }
+  function spoolLabel(s) {
+    return s.material + (s.colorName ? ' · ' + s.colorName : '') + ' (' + s.maker + ') – ' + g(s.initial - s.used);
+  }
+  function fillSpoolOptions(sel, current, onlyAvailable, emptyLabel) {
+    sel.textContent = '';
+    if (emptyLabel != null) { var e = el('option', null, emptyLabel); e.value = ''; sel.append(e); }
+    state.spools.forEach(function (s) {
+      if (onlyAvailable && s.initial - s.used <= 0) return;
+      var o = el('option', null, spoolLabel(s)); o.value = s.id; sel.append(o);
+    });
+    sel.value = current || '';
+  }
+
+  // ---------- Anzeige ----------
+  function render() {
+    var totalRest = 0, totalCost = 0, low = 0;
+    state.spools.forEach(function (s) {
+      var rest = s.initial - s.used;
+      totalRest += rest; totalCost += costOf(s, s.used);
+      if (rest < WARN) low++;
+    });
+    var sum = $('summary'); sum.textContent = '';
+    [['Spulen', String(state.spools.length)],
+     ['Restbestand gesamt', g(totalRest)],
+     ['Kosten verbraucht', eur(totalCost)],
+     ['Spulen fast leer', String(low)]].forEach(function (x) {
+      var d = el('div', 'stat');
+      d.append(el('div', 'label', x[0]), el('div', 'value', x[1]));
+      sum.append(d);
+    });
+
+    renderPrinters();
+
+    var list = $('list'); list.textContent = '';
+    if (!state.spools.length) {
+      var em = el('div', 'empty', 'Noch keine Spulen vorhanden. Mit „+ Neue Spule“ die erste Spule anlegen.');
+      em.style.gridColumn = '1 / -1';
+      list.append(em);
+      return;
+    }
+    state.spools.forEach(function (s) { list.append(card(s)); });
+  }
+
+  function renderPrinters() {
+    var box = $('printers'); box.textContent = '';
+    if (!state.printers.length) {
+      var em = el('div', 'empty', 'Noch kein Drucker angelegt. Mit „+ Neuer Drucker“ den ersten Drucker anlegen.');
+      em.style.gridColumn = '1 / -1';
+      box.append(em);
+      return;
+    }
+    state.printers.forEach(function (p) { box.append(printerCard(p)); });
+  }
+
+  function printerCard(p) {
+    var c = el('article', 'printer');
+    var slotSelect = function (i) {
+      var sel = el('select');
+      fillSpoolOptions(sel, p.slots[i], false, p.ams ? '– leer –' : '– keine Spule eingelegt –');
+      sel.onchange = function () { setSlot(p, i, sel.value); save(); render(); };
+      return sel;
+    };
+
+    var top = el('div', 'top');
+    var tt = el('div');
+    tt.append(el('div', 'title', p.name), el('div', 'sub',
+      (fullModel(p) && fullModel(p) !== p.name ? fullModel(p) + ' · ' : '') + (p.ams ? 'mit ' : 'ohne ') + sysName(p)));
+    top.append(el('div', 'picon', '🖨'), tt);
+    c.append(top);
+
+    if (!p.ams) {
+      var lab = el('label', null, 'Eingelegte Spule (ohne ' + sysName(p) + ')'); lab.htmlFor = 'loaded-' + p.id;
+      var one = slotSelect(0); one.id = 'loaded-' + p.id;
+      c.append(lab, one);
+    } else {
+      var used = p.slots.filter(Boolean).length;
+      c.append(el('label', null, sysName(p) + ' – ' + used + ' von ' + p.slots.length + ' Plätzen belegt'));
+      var box = el('div', 'slots');
+      p.slots.forEach(function (sid, i) {
+        var row = el('div', 'slot'), sel = slotSelect(i);
+        sel.setAttribute('aria-label', 'Platz ' + (i + 1));
+        row.append(el('span', null, String(i + 1)), sel);
+        box.append(row);
+      });
+      c.append(box);
+    }
+
+    p.slots.forEach(function (sid, i) {
+      var s = sid ? find(sid) : null;
+      if (!s) return;
+      var rest = round1(s.initial - s.used);
+      if (rest >= WARN) return;
+      var text = (p.ams ? 'Platz ' + (i + 1) + ': ' : '') + s.material + (s.colorName ? ' · ' + s.colorName : '') +
+        (rest <= 0 ? ' ist leer' : ' – nur noch ' + g(rest));
+      c.append(el('div', 'badge ' + (rest < CRIT ? 'crit' : 'warn'), (rest < CRIT ? '⛔ ' : '⚠ ') + text));
+    });
+
+    var dl = el('dl', 'facts');
+    [['Filament verbraucht', g(p.usedG)],
+     ['Kosten', eur(p.cost)],
+     ['Abbuchungen', String(p.prints)]].forEach(function (x) {
+      dl.append(el('dt', null, x[0]), el('dd', null, x[1]));
+    });
+    c.append(dl);
+
+    var act = el('div', 'actions');
+    var bUse = el('button', 'primary big', 'Verbrauch abbuchen'); bUse.type = 'button';
+    var any = state.spools.some(function (s) { return s.initial - s.used > 0; });
+    bUse.disabled = !any;
+    if (!any) bUse.style.opacity = '.5';
+    bUse.onclick = function () { openUse(null, p.id); };
+    var bEdit = el('button', 'small', 'Bearbeiten'); bEdit.type = 'button';
+    bEdit.onclick = function () { openPrinter(p.id); };
+    var bDel = el('button', 'small danger', 'Löschen'); bDel.type = 'button';
+    bDel.onclick = function () {
+      if (!confirm('Drucker „' + p.name + '“ mit seiner Statistik wirklich löschen?')) return;
+      state.printers = state.printers.filter(function (x) { return x.id !== p.id; });
+      save(); render();
+    };
+    act.append(bUse, bEdit, bDel);
+    c.append(act);
+    return c;
+  }
+
+  function card(s) {
+    var rest = round1(s.initial - s.used);
+    var level = rest < CRIT ? 'crit' : rest < WARN ? 'warn' : '';
+    var c = el('article', 'spool ' + level);
+
+    var top = el('div', 'top');
+    var sw = el('div', 'swatch'); sw.style.background = s.colorHex;
+    var tt = el('div');
+    tt.append(el('div', 'title', s.material + (s.colorName ? ' · ' + s.colorName : '')), el('div', 'sub', s.maker + (whereLoaded(s.id) ? ' · eingelegt in ' + whereLoaded(s.id) : '')));
+    top.append(sw, tt);
+
+    var r = el('div', 'rest', g(rest) + ' ');
+    r.append(el('span', null, 'von ' + g(s.initial)));
+
+    var bar = el('div', 'bar'); var fill = el('div');
+    fill.style.width = Math.max(0, Math.min(100, rest / s.initial * 100)) + '%';
+    bar.append(fill);
+
+    c.append(top, r, bar);
+
+    if (level === 'crit') c.append(el('div', 'badge crit', rest <= 0 ? '⛔ Spule ist leer' : '⛔ Fast leer – unter ' + CRIT + ' g'));
+    else if (level === 'warn') c.append(el('div', 'badge warn', '⚠ Wird knapp – unter ' + WARN + ' g'));
+
+    var dl = el('dl', 'facts');
+    [['Verbraucht', g(s.used)],
+     ['Kosten verbraucht', eur(costOf(s, s.used))],
+     ['Preis der Spule', eur(s.price)],
+     ['Preis pro kg', eur(s.price / s.initial * 1000)]].forEach(function (x) {
+      dl.append(el('dt', null, x[0]), el('dd', null, x[1]));
+    });
+    if (s.barcode) dl.append(el('dt', null, 'Barcode'), el('dd', null, s.barcode));
+    c.append(dl);
+
+    if (s.log.length) {
+      var l = s.log[s.log.length - 1];
+      var last = el('div', 'last');
+      last.append(el('span', null, 'Letzte Abbuchung: ' + g(l.g) + (l.t ? ' am ' + dfD.format(new Date(l.t)) : '')));
+      var undo = el('button', 'small', 'Rückgängig');
+      undo.type = 'button';
+      undo.onclick = function () {
+        if (!confirm('Letzte Abbuchung (' + g(l.g) + ') rückgängig machen?')) return;
+        s.log.pop(); s.used = Math.max(0, round1(s.used - l.g));
+        var pr = l.p ? findPrinter(l.p) : null;
+        if (pr) {
+          pr.usedG = Math.max(0, round1(pr.usedG - l.g));
+          pr.cost = Math.max(0, pr.cost - (l.c || 0));
+          pr.prints = Math.max(0, pr.prints - 1);
+        }
+        save(); render();
+      };
+      last.append(undo);
+      c.append(last);
+    }
+
+    var act = el('div', 'actions');
+    var bUse = el('button', 'primary big', 'Verbrauch abbuchen'); bUse.type = 'button';
+    bUse.disabled = rest <= 0;
+    if (rest <= 0) bUse.style.opacity = '.5';
+    bUse.onclick = function () { openUse(s.id); };
+    var bEdit = el('button', 'small', 'Bearbeiten'); bEdit.type = 'button';
+    bEdit.onclick = function () { openSpool(s.id); };
+    var bDel = el('button', 'small danger', 'Löschen'); bDel.type = 'button';
+    bDel.onclick = function () {
+      if (!confirm('Spule „' + s.material + ' ' + s.colorName + '“ (' + s.maker + ') wirklich löschen?')) return;
+      state.spools = state.spools.filter(function (x) { return x.id !== s.id; });
+      unloadSpool(s.id);
+      save(); render();
+    };
+    act.append(bUse, bEdit, bDel);
+    c.append(act);
+    return c;
+  }
+
+  // ---------- Auswahllisten mit eigener Eingabe ----------
+  function fillSelect(sel, input, base, custom, current, customLabel) {
+    sel.textContent = '';
+    var all = base.concat(custom.filter(function (x) { return base.indexOf(x) < 0; }));
+    if (current && all.indexOf(current) < 0) all.push(current);
+    all.forEach(function (n) { var o = el('option', null, n); o.value = n; sel.append(o); });
+    var o = el('option', null, customLabel); o.value = CUSTOM; sel.append(o);
+    sel.value = current || all[0];
+    input.value = ''; input.hidden = true;
+  }
+  function wireCustom(sel, input) {
+    sel.addEventListener('change', function () {
+      input.hidden = sel.value !== CUSTOM;
+      if (!input.hidden) input.focus();
+    });
+  }
+  function readSelect(sel, input) { return sel.value === CUSTOM ? input.value.trim() : sel.value; }
+  function remember(listName, base, value) {
+    var exists = base.concat(state[listName]).some(function (x) { return x.toLowerCase() === value.toLowerCase(); });
+    if (!exists) state[listName].push(value);
+  }
+  wireCustom($('fMaterial'), $('fMaterialCustom'));
+  wireCustom($('fMaker'), $('fMakerCustom'));
+
+  // ---------- Spule anlegen / bearbeiten ----------
+  // Letzte Spule mit diesem Barcode – dient als Vorlage beim Nachkauf
+  function byBarcode(code) {
+    var m = state.spools.filter(function (s) { return s.barcode && s.barcode === code; });
+    return m[m.length - 1] || null;
+  }
+  function fillSpoolForm(s, barcode) {
+    fillSelect($('fMaterial'), $('fMaterialCustom'), MATERIALS, state.materials, s && s.material, 'Eigene Eingabe …');
+    fillSelect($('fMaker'), $('fMakerCustom'), MAKERS, state.makers, s && s.maker, '+ Eigenen Hersteller hinzufügen …');
+    $('fColorName').value = s ? s.colorName : '';
+    $('fColorHex').value = s ? s.colorHex : '#1e88e5';
+    $('fInitial').value = s ? nfG.format(s.initial).replace(/\./g, '') : '1000';
+    $('fPrice').value = s ? s.price.toFixed(2).replace('.', ',') : '';
+    $('fBarcode').value = barcode || '';
+    $('spoolError').textContent = '';
+  }
+  function openSpool(id, barcode) {
+    editId = id || null;
+    var s = id ? find(id) : null;
+    $('spoolTitle').textContent = s ? 'Spule bearbeiten' : 'Neue Spule';
+    fillSpoolForm(s || (barcode ? byBarcode(barcode) : null), s ? s.barcode : barcode);
+    $('dlgSpool').showModal();
+  }
+  $('btnScanField').addEventListener('click', function () {
+    openScanner(function (code) {
+      var t = editId ? null : byBarcode(code);
+      if (t) fillSpoolForm(t, code); else $('fBarcode').value = code;
+    });
+  });
+
+  $('formSpool').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var material = readSelect($('fMaterial'), $('fMaterialCustom'));
+    var maker = readSelect($('fMaker'), $('fMakerCustom'));
+    var colorName = $('fColorName').value.trim();
+    var initial = num($('fInitial').value);
+    var price = num($('fPrice').value);
+    var err = '';
+    if (!material) err = 'Bitte ein Material eingeben.';
+    else if (!colorName) err = 'Bitte eine Farbe eingeben.';
+    else if (!maker) err = 'Bitte einen Hersteller eingeben.';
+    else if (!(initial > 0)) err = 'Bitte ein gültiges Anfangsgewicht in Gramm eingeben.';
+    else if (isNaN(price)) err = 'Bitte einen gültigen Preis eingeben, z. B. 19,99.';
+    var s = editId ? find(editId) : null;
+    if (!err && s && initial < s.used) err = 'Es wurden bereits ' + g(s.used) + ' abgebucht – das Anfangsgewicht kann nicht kleiner sein.';
+    if (err) { $('spoolError').textContent = err; return; }
+
+    remember('materials', MATERIALS, material);
+    remember('makers', MAKERS, maker);
+    var data = { material: material, colorName: colorName, colorHex: $('fColorHex').value, maker: maker, barcode: $('fBarcode').value.trim(), initial: initial, price: price };
+    if (s) Object.assign(s, data);
+    else state.spools.push(Object.assign({ id: newId(), used: 0, log: [] }, data));
+    save(); render();
+    $('dlgSpool').close();
+  });
+
+  // ---------- Verbrauch abbuchen ----------
+  function usePrinter() { return findPrinter($('fUsePrinter').value); }
+  function hasRest(s) { return !!s && s.initial - s.used > 0; }
+  function updateUseInfo() {
+    var s = find($('fUseSpool').value), pr = usePrinter(), n = num($('fUse').value), info = '';
+    if (pr && s) {
+      var at = pr.slots.indexOf(s.id), free = pr.slots.indexOf('');
+      if (at >= 0) info = 'Diese Spule ist in „' + pr.name + '“ eingelegt' + (pr.ams ? ' (Platz ' + (at + 1) + ').' : '.');
+      else if (!pr.ams) info = 'Diese Spule wird beim Abbuchen in „' + pr.name + '“ als eingelegt eingetragen.';
+      else if (free >= 0) info = 'Diese Spule wird beim Abbuchen in „' + pr.name + '“ auf Platz ' + (free + 1) + ' eingetragen.';
+      else info = 'Diese Spule ist nicht in „' + pr.name + '“ eingelegt; alle Plätze sind belegt.';
+    }
+    $('useInfo').textContent = info;
+    $('useHint').textContent = s && n > 0
+      ? 'Kosten dieses Drucks: ' + eur(costOf(s, n)) + ' · neuer Rest: ' + g(Math.max(0, s.initial - s.used - n))
+      : '';
+  }
+  // Vorschlag für einen Drucker: die zuletzt dort abgebuchte Spule, sonst die erste eingelegte mit Restbestand
+  function suggestSpool(pr) {
+    if (!pr) return '';
+    if (pr.slots.indexOf(pr.lastSpoolId) >= 0 && hasRest(find(pr.lastSpoolId))) return pr.lastSpoolId;
+    return pr.slots.filter(function (id) { return hasRest(find(id)); })[0] || '';
+  }
+  // Spulen-Auswahl: zuerst die im Drucker eingelegten Spulen, danach alle anderen
+  function fillUseSpools(pr, current) {
+    var sel = $('fUseSpool'); sel.textContent = '';
+    var add = function (parent, s, prefix) {
+      var o = el('option', null, prefix + spoolLabel(s)); o.value = s.id; parent.append(o);
+    };
+    var avail = state.spools.filter(hasRest);
+    var inPrinter = pr ? avail.filter(function (s) { return pr.slots.indexOf(s.id) >= 0; }) : [];
+    if (!inPrinter.length) avail.forEach(function (s) { add(sel, s, ''); });
+    else {
+      var g1 = document.createElement('optgroup'); g1.label = 'In „' + pr.name + '“ eingelegt';
+      inPrinter.sort(function (a, b) { return pr.slots.indexOf(a.id) - pr.slots.indexOf(b.id); })
+        .forEach(function (s) { add(g1, s, pr.ams ? 'Platz ' + (pr.slots.indexOf(s.id) + 1) + ': ' : ''); });
+      sel.append(g1);
+      var others = avail.filter(function (s) { return pr.slots.indexOf(s.id) < 0; });
+      if (others.length) {
+        var g2 = document.createElement('optgroup'); g2.label = 'Andere Spulen';
+        others.forEach(function (s) { add(g2, s, ''); });
+        sel.append(g2);
+      }
+    }
+    sel.value = current || '';
+  }
+  // Aufruf von einer Spule (spoolId) oder von einem Drucker (printerId) aus
+  function openUse(spoolId, printerId) {
+    var avail = state.spools.filter(hasRest);
+    var pr = printerId ? findPrinter(printerId) : (spoolId ? printerOf(spoolId) : null);
+    var psel = $('fUsePrinter'); psel.textContent = '';
+    var none = el('option', null, '– ohne Drucker –'); none.value = ''; psel.append(none);
+    state.printers.forEach(function (p) {
+      var fm = fullModel(p);
+      var o = el('option', null, p.name + (fm && fm !== p.name ? ' (' + fm + ')' : '')); o.value = p.id; psel.append(o);
+    });
+    psel.value = pr ? pr.id : '';
+    $('usePrinterWrap').hidden = !state.printers.length;
+    // Vorschlag: die gewählte Spule, sonst die im Drucker eingelegte, sonst die erste mit Restbestand
+    var sid = spoolId || suggestSpool(pr);
+    if (!hasRest(find(sid))) sid = avail.length ? avail[0].id : '';
+    fillUseSpools(pr, sid);
+    $('fUse').value = '';
+    $('useError').textContent = avail.length ? '' : 'Es gibt keine Spule mit Restbestand.';
+    updateUseInfo();
+    $('dlgUse').showModal();
+    $('fUse').focus();
+  }
+  $('fUsePrinter').addEventListener('change', function () {
+    var pr = usePrinter(), keep = $('fUseSpool').value;
+    fillUseSpools(pr, suggestSpool(pr) || keep);
+    updateUseInfo();
+  });
+  $('fUseSpool').addEventListener('change', updateUseInfo);
+  $('fUse').addEventListener('input', function () {
+    $('useError').textContent = '';
+    updateUseInfo();
+  });
+  $('formUse').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var s = find($('fUseSpool').value), n = num($('fUse').value);
+    if (!s) { $('useError').textContent = 'Bitte eine Spule wählen.'; return; }
+    var rest = round1(s.initial - s.used);
+    if (!(n > 0)) { $('useError').textContent = 'Bitte den Verbrauch in Gramm eingeben, z. B. 42,5.'; return; }
+    if (n > rest) { $('useError').textContent = 'Auf der Spule sind nur noch ' + g(rest) + '.'; return; }
+    var cost = costOf(s, n), entry = { t: Date.now(), g: n, p: '', c: cost }, pr = usePrinter();
+    s.used = round1(s.used + n);
+    if (pr) {
+      entry.p = pr.id;
+      pr.usedG = round1(pr.usedG + n);
+      pr.cost += cost;
+      pr.prints += 1;
+      pr.lastSpoolId = s.id;
+      // Noch nicht eingelegt: ohne AMS ersetzt sie die bisherige Spule, mit AMS kommt sie auf den ersten freien Platz
+      if (pr.slots.indexOf(s.id) < 0) {
+        var free = pr.ams ? pr.slots.indexOf('') : 0;
+        if (free >= 0) setSlot(pr, free, s.id);
+      }
+    }
+    s.log.push(entry);
+    save(); render();
+    $('dlgUse').close();
+  });
+
+  // ---------- Drucker anlegen / bearbeiten ----------
+  var editPrinterId = null;
+  function openPrinter(id) {
+    editPrinterId = id || null;
+    var p = id ? findPrinter(id) : null;
+    $('printerTitle').textContent = p ? 'Drucker bearbeiten' : 'Neuer Drucker';
+    // Der Name bleibt leer, wenn er nur aus Hersteller + Modell besteht
+    $('fPName').value = p && p.name !== fullModel(p) ? p.name : '';
+    var names = PRINTER_BRANDS.map(function (b) { return b.name; });
+    fillSelect($('fPBrand'), $('fPBrandCustom'), names, [], p ? p.brand : names[0], 'Anderer Hersteller …');
+    if (p && !p.brand) { $('fPBrand').value = CUSTOM; $('fPBrandCustom').hidden = false; }
+    fillModels(p ? p.model : '');
+    $('fPAms').value = p && p.ams ? '1' : '0';
+    $('fPSlots').value = p && p.ams ? String(p.slots.length) : '4';
+    $('fPSlotsWrap').hidden = !(p && p.ams);
+    $('printerError').textContent = '';
+    $('dlgPrinter').showModal();
+  }
+  // Modelle des gewählten Herstellers anbieten und das Mehrfarbsystem passend benennen
+  function fillModels(current) {
+    var b = brandInfo($('fPBrand').value);
+    fillSelect($('fPModel'), $('fPModelCustom'), b ? b.models : [], [], current, 'Anderes Modell …');
+    if ($('fPModel').selectedIndex < 0) $('fPModel').selectedIndex = 0;
+    $('fPModelCustom').hidden = $('fPModel').value !== CUSTOM;
+    $('fPAmsLabel').textContent = (b ? b.system : GENERIC_SYSTEM) + ' angeschlossen?';
+  }
+  wireCustom($('fPBrand'), $('fPBrandCustom'));
+  wireCustom($('fPModel'), $('fPModelCustom'));
+  $('fPBrand').addEventListener('change', function () { fillModels(''); });
+  $('btnNewPrinter').addEventListener('click', function () { openPrinter(null); });
+  $('fPAms').addEventListener('change', function () { $('fPSlotsWrap').hidden = this.value !== '1'; });
+  $('formPrinter').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var brand = readSelect($('fPBrand'), $('fPBrandCustom')), model = readSelect($('fPModel'), $('fPModelCustom'));
+    var name = $('fPName').value.trim() || (brand + ' ' + model).trim();
+    if (!name) { $('printerError').textContent = 'Bitte Hersteller, Modell oder einen eigenen Namen eingeben.'; return; }
+    var ams = $('fPAms').value === '1', count = ams ? num($('fPSlots').value) : 1;
+    if (ams && !(Math.round(count) === count && count >= 2 && count <= MAX_SLOTS)) {
+      $('printerError').textContent = 'Bitte eine Anzahl von 2 bis ' + MAX_SLOTS + ' Spulenplätzen eingeben.'; return;
+    }
+    var p = editPrinterId ? findPrinter(editPrinterId) : null;
+    if (!p) { p = { id: newId(), usedG: 0, cost: 0, prints: 0, slots: [''], lastSpoolId: '' }; state.printers.push(p); }
+    p.name = name; p.brand = brand; p.model = model; p.ams = ams;
+    // Plätze anpassen: mit AMS kürzen oder auffüllen, ohne AMS bleibt die erste eingelegte Spule
+    var slots = ams ? p.slots.slice(0, count) : [p.slots.filter(Boolean)[0] || ''];
+    while (slots.length < count) slots.push('');
+    p.slots = slots;
+    save(); render();
+    $('dlgPrinter').close();
+  });
+
+  // ---------- Barcode-Scanner ----------
+  var ZXING_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+  var CAM_KEY = 'filament-verwaltung-kamera';
+  // Nur Typen mit starker Prüfsumme – UPC-E, Code 39 und ITF liefern bei schrägen Bildern leicht falsche Nummern
+  var FORMATS = ['EAN_13', 'EAN_8', 'UPC_A', 'CODE_128', 'QR_CODE'];
+  var scanCb = null, scanStream = null, scanTimer = null, zxReader = null, zxHints = null, zxLoading = null;
+  var WASM_URL = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js';
+  var nativeDet = null, lastCode = '', scanPass = 0, torchOn = false, scripts = {};
+  var scanCanvas = document.createElement('canvas'), blurCanvas = document.createElement('canvas');
+
+  function openScanner(cb) {
+    scanCb = cb;
+    lastCode = '';
+    $('scanPhoto').hidden = true;
+    document.querySelector('.scanbox').classList.remove('nocam');
+    $('fScanManual').value = '';
+    $('scanStatus').textContent = 'Kamera wird gestartet …';
+    $('dlgScan').showModal();
+    $('fScanManual').focus();
+    startCamera();
+  }
+  function gotCode(code) {
+    code = String(code || '').trim();
+    if (!code || !$('dlgScan').open) return;
+    var cb = scanCb; scanCb = null;
+    $('dlgScan').close();
+    if (cb) cb(code);
+  }
+  function stopCamera() {
+    if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
+    if (scanStream) { scanStream.getTracks().forEach(function (t) { t.stop(); }); scanStream = null; }
+    $('scanVideo').srcObject = null;
+    torchOn = false;
+    $('scanTorch').hidden = true; $('scanZoomWrap').hidden = true;
+    document.querySelector('.scanbox').classList.remove('hit');
+  }
+  function camError(noLive) {
+    if (!$('dlgScan').open) return;
+    document.querySelector('.scanbox').classList.add('nocam');
+    var photo = ' Bitte „Foto vom Barcode aufnehmen“ benutzen.';
+    if (noLive === true) {
+      $('scanStatus').textContent = 'Das Live-Bild ist hier nicht möglich, weil die Seite nicht über https geöffnet ist.' + photo;
+      return;
+    }
+    // Genauer Grund, damit klar ist, ob eine Einstellung hilft
+    var name = noLive && noLive.name ? noLive.name : '';
+    var asFile = location.protocol !== 'https:' && location.protocol !== 'http:';
+    var text;
+    if (name === 'NotAllowedError' || name === 'SecurityError') {
+      text = asFile
+        ? 'Der Browser gibt die Kamera für eine als Datei geöffnete Seite nicht frei – auch wenn sie in den Einstellungen erlaubt ist.' + photo
+        : 'Die Kamera ist für diese Seite blockiert. Links neben der Adresse auf das Symbol tippen, „Berechtigungen“ öffnen und die Kamera zulassen – oder „Foto vom Barcode aufnehmen“ benutzen.';
+    } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+      text = 'Es wurde keine Kamera gefunden.' + photo;
+    } else if (name === 'NotReadableError' || name === 'AbortError') {
+      text = 'Die Kamera wird gerade von einer anderen App benutzt. Bitte andere Kamera-Apps schließen und es noch einmal versuchen.';
+    } else {
+      text = 'Die Kamera konnte nicht gestartet werden.' + photo;
+    }
+    $('scanStatus').textContent = text + (name ? ' (Fehler: ' + name + ')' : '');
+  }
+  function loadScript(url) {
+    if (!scripts[url]) scripts[url] = new Promise(function (ok, fail) {
+      var sc = document.createElement('script');
+      sc.src = url;
+      sc.onload = ok;
+      sc.onerror = function () { delete scripts[url]; fail(); };
+      document.head.append(sc);
+    });
+    return scripts[url];
+  }
+  function savedCam() { try { return localStorage.getItem(CAM_KEY) || ''; } catch (e) { return ''; } }
+
+  // Erkennung vorbereiten: eingebaute Erkennung des Browsers oder ZXing
+  function loadDecoder() {
+    if (nativeDet || zxReader) return Promise.resolve();
+    if ('BarcodeDetector' in window) {
+      try { nativeDet = new BarcodeDetector(); return Promise.resolve(); } catch (e) {}
+    }
+    // Bevorzugt: ZXing-C++ (WebAssembly) – schnell und treffsicher. Probelauf, damit ein Ladefehler auffällt.
+    return loadScript(WASM_URL).then(function () {
+      var d = new BarcodeDetectionAPI.BarcodeDetector({ formats: FORMATS.map(function (f) { return f.toLowerCase(); }) });
+      var probe = document.createElement('canvas'); probe.width = probe.height = 16;
+      probe.getContext('2d').fillRect(0, 0, 16, 16);
+      return d.detect(probe).then(function () { nativeDet = d; });
+    }).catch(loadZXingJs);
+  }
+  // Ersatz, falls WebAssembly nicht geladen werden kann
+  function loadZXingJs() {
+    return loadScript(ZXING_URL).then(function () {
+      zxHints = new Map();
+      zxHints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, FORMATS.map(function (f) { return ZXing.BarcodeFormat[f]; }));
+      zxHints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      zxReader = new ZXing.MultiFormatReader();
+    });
+  }
+  // Ein Bild auswerten; liefert die Nummer oder null
+  function decodeCanvas(canvas) {
+    if (nativeDet) {
+      return nativeDet.detect(canvas).then(function (r) { return r.length ? r[0].rawValue : null; }, function () { return null; });
+    }
+    var src = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+    var bins = [ZXing.HybridBinarizer, ZXing.GlobalHistogramBinarizer];
+    for (var i = 0; i < bins.length; i++) {
+      try { return Promise.resolve(zxReader.decode(new ZXing.BinaryBitmap(new bins[i](src)), zxHints).getText()); } catch (e) {}
+    }
+    return Promise.resolve(null);
+  }
+  // Ausschnitt (Anteil f der Bildmitte) skaliert und bei Bedarf gedreht in die Arbeitsfläche zeichnen
+  function drawSrc(src, w, h, f, scale, rot) {
+    var sw = w * f, sh = h * f;
+    var cw = scanCanvas.width = Math.round(sw * scale), ch = scanCanvas.height = Math.round(sh * scale);
+    var ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#888'; ctx.fillRect(0, 0, cw, ch);
+    if (rot) { ctx.translate(cw / 2, ch / 2); ctx.rotate(rot * Math.PI / 180); ctx.translate(-cw / 2, -ch / 2); }
+    ctx.drawImage(src, (w - sw) / 2, (h - sh) / 2, sw, sh, 0, 0, cw, ch);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // Nachschärfen (Unscharfmaske) – holt Striche aus leicht unscharfen Bildern zurück
+  function sharpen(amount, radius) {
+    var w = scanCanvas.width, h = scanCanvas.height;
+    var ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+    blurCanvas.width = w; blurCanvas.height = h;
+    var bx = blurCanvas.getContext('2d', { willReadFrequently: true });
+    bx.filter = 'blur(' + radius + 'px)'; bx.drawImage(scanCanvas, 0, 0); bx.filter = 'none';
+    var img = ctx.getImageData(0, 0, w, h), D = img.data, B = bx.getImageData(0, 0, w, h).data;
+    for (var i = 0; i < D.length; i += 4) {
+      var g = (D[i] * 77 + D[i + 1] * 150 + D[i + 2] * 29) >> 8, b = (B[i] * 77 + B[i + 1] * 150 + B[i + 2] * 29) >> 8;
+      var v = g + amount * (g - b);
+      D[i] = D[i + 1] = D[i + 2] = v < 0 ? 0 : v > 255 ? 255 : v;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  // Pro Durchgang eine andere Ansicht, jeweils roh und nachgeschärft:
+  // Bildmitte, ganzes Bild, stark vergrößerte Mitte (kleine Codes), schräg gedrehte Mitte (schief gehaltene Codes)
+  function attempts(src, w, h, pass) {
+    var cap = function (f) { return Math.min(1, 1280 / (w * f)); };
+    switch (pass % 4) {
+      case 0: return [function () { drawSrc(src, w, h, 0.6, cap(0.6), 0); }, function () { sharpen(2, 2); }];
+      case 1: return [function () { drawSrc(src, w, h, 1, cap(1), 0); }, function () { sharpen(2, 2); }];
+      case 2: return [function () { drawSrc(src, w, h, 0.35, Math.min(2, 1400 / (w * 0.35)), 0); }, function () { sharpen(3, 4); }];
+      default: return [function () { drawSrc(src, w, h, 0.6, cap(0.6), pass % 8 < 4 ? 20 : -20); }, function () { sharpen(2, 2); }];
+    }
+  }
+  function runAttempts(list) {
+    return list.reduce(function (p, prepare) {
+      return p.then(function (code) { if (code) return code; prepare(); return decodeCanvas(scanCanvas); });
+    }, Promise.resolve(null));
+  }
+  function scanTick() {
+    scanTimer = null;
+    var st = scanStream, video = $('scanVideo');
+    if (!st) return;
+    if (video.readyState < 2 || !video.videoWidth) { scanTimer = setTimeout(scanTick, 100); return; }
+    runAttempts(attempts(video, video.videoWidth, video.videoHeight, scanPass++)).then(function (code) {
+      if (scanStream !== st) return;
+      if (code) {
+        // Erst übernehmen, wenn dieselbe Nummer zweimal gelesen wurde – verhindert Fehllesungen
+        if (code === lastCode) {
+          document.querySelector('.scanbox').classList.add('hit');
+          if (navigator.vibrate) navigator.vibrate(80);
+          gotCode(code);
+          return;
+        }
+        lastCode = code;
+      }
+      scanTimer = setTimeout(scanTick, 50);
+    });
+  }
+  // Licht, Zoom und Autofokus – nur wenn die Kamera das kann (meist am Handy)
+  function setupTrack(track) {
+    var caps = track.getCapabilities ? track.getCapabilities() : {};
+    var apply = function (c) { return track.applyConstraints({ advanced: [c] }).catch(function () {}); };
+    if (caps.focusMode && caps.focusMode.indexOf('continuous') >= 0) apply({ focusMode: 'continuous' });
+    $('scanTorch').hidden = !caps.torch;
+    $('scanTorch').onclick = function () { torchOn = !torchOn; apply({ torch: torchOn }); };
+    var z = caps.zoom;
+    $('scanZoomWrap').hidden = !(z && z.max > z.min);
+    if (z && z.max > z.min) {
+      var zi = $('scanZoom');
+      zi.min = z.min; zi.max = z.max; zi.step = z.step || 0.1;
+      zi.value = (track.getSettings().zoom || z.min);
+      zi.oninput = function () { apply({ zoom: +zi.value }); };
+    }
+  }
+  function listCameras(activeId) {
+    navigator.mediaDevices.enumerateDevices().then(function (devs) {
+      var cams = devs.filter(function (d) { return d.kind === 'videoinput'; });
+      var sel = $('scanCam'); sel.textContent = '';
+      cams.forEach(function (d, i) {
+        var o = el('option', null, d.label || 'Kamera ' + (i + 1)); o.value = d.deviceId; sel.append(o);
+      });
+      sel.value = activeId || '';
+      sel.hidden = cams.length < 2;
+    }).catch(function () {});
+  }
+  function startCamera(deviceId) {
+    var video = $('scanVideo');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camError(true); return; }
+    stopCamera();
+    $('scanPhoto').hidden = true;
+    deviceId = deviceId || savedCam();
+    var want = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+    if (deviceId) want.deviceId = { ideal: deviceId }; else want.facingMode = { ideal: 'environment' };
+    navigator.mediaDevices.getUserMedia({ video: want }).catch(function (err) {
+      // Bei einem technischen Fehler noch ein Versuch ohne Wünsche an Auflösung und Kamera
+      if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) throw err;
+      return navigator.mediaDevices.getUserMedia({ video: true });
+    }).then(function (st) {
+      if (!$('dlgScan').open) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
+      scanStream = st; video.srcObject = st;
+      var p = video.play(); if (p && p.catch) p.catch(function () {});
+      var track = st.getVideoTracks()[0];
+      setupTrack(track);
+      listCameras(track.getSettings().deviceId);
+      $('scanStatus').textContent = 'Erkennung wird geladen …';
+      loadDecoder().then(function () {
+        if (scanStream !== st) return;
+        $('scanStatus').textContent = 'Barcode auf die rote Linie halten. Bei unscharfem Bild etwas weiter weg halten.';
+        scanTick();
+      }).catch(function () {
+        if (scanStream === st) $('scanStatus').textContent = 'Die Erkennung braucht Internet zum Laden. Bitte die Nummer unten eintippen.';
+      });
+    }).catch(camError);
+  }
+  // Foto mit der Kamera-App des Handys aufnehmen und auswerten – geht auch ohne Live-Bild
+  $('scanPhotoBtn').addEventListener('click', function () { $('scanFile').click(); });
+  $('scanFile').addEventListener('change', function () {
+    var file = this.files[0]; this.value = '';
+    if (!file) return;
+    var img = $('scanPhoto'), url = URL.createObjectURL(file);
+    stopCamera();
+    $('scanStatus').textContent = 'Foto wird ausgewertet …';
+    img.onerror = function () { $('scanStatus').textContent = 'Das Foto konnte nicht geladen werden.'; };
+    img.onload = function () {
+      document.querySelector('.scanbox').classList.remove('nocam');
+      img.hidden = false;
+      loadDecoder().then(function () {
+        // Alle Ansichten auswerten und die am häufigsten gelesene Nummer nehmen – schützt vor Fehllesungen
+        var steps = [], tally = {};
+        for (var p = 0; p < 8; p++) steps = steps.concat(attempts(img, img.naturalWidth, img.naturalHeight, p));
+        return steps.reduce(function (chain, prepare) {
+          return chain.then(function () {
+            prepare();
+            return decodeCanvas(scanCanvas).then(function (c) { if (c) tally[c] = (tally[c] || 0) + 1; });
+          });
+        }, Promise.resolve()).then(function () {
+          return Object.keys(tally).sort(function (a, b) { return tally[b] - tally[a]; })[0] || null;
+        });
+      }).then(function (code) {
+        if (code) { document.querySelector('.scanbox').classList.add('hit'); gotCode(code); }
+        else $('scanStatus').textContent = 'Im Foto wurde kein Barcode erkannt. Bitte näher herangehen, scharf stellen und noch einmal fotografieren.';
+      }).catch(function () {
+        $('scanStatus').textContent = 'Die Erkennung braucht Internet zum Laden. Bitte die Nummer unten eintippen.';
+      });
+    };
+    img.src = url;
+  });
+  $('scanCam').addEventListener('change', function () {
+    try { localStorage.setItem(CAM_KEY, this.value); } catch (e) {}
+    lastCode = '';
+    startCamera(this.value);
+  });
+  $('dlgScan').addEventListener('close', stopCamera);
+  $('formScan').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    gotCode($('fScanManual').value);
+  });
+  // Scan von der Startseite: bekannte Spule -> Verbrauch abbuchen, sonst neue Spule anlegen
+  $('btnScan').addEventListener('click', function () {
+    openScanner(function (code) {
+      var open = state.spools.filter(function (s) { return s.barcode === code && s.initial - s.used > 0; })
+        .sort(function (a, b) { return (a.initial - a.used) - (b.initial - b.used); });
+      if (open.length) openUse(open[0].id);
+      else openSpool(null, code);
+    });
+  });
+
+  // ---------- Dialoge, Sicherung ----------
+  document.querySelectorAll('[data-close]').forEach(function (b) {
+    b.addEventListener('click', function () { b.closest('dialog').close(); });
+  });
+  $('btnNew').addEventListener('click', function () { openSpool(null); });
+
+  $('btnExport').addEventListener('click', function () {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+    a.download = 'filament-sicherung-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+  $('btnImport').addEventListener('click', function () { $('fileImport').click(); });
+  $('fileImport').addEventListener('change', function () {
+    var f = this.files[0]; this.value = '';
+    if (!f) return;
+    f.text().then(function (t) {
+      var data = clean(JSON.parse(t));
+      if (!confirm('Sicherung mit ' + data.spools.length + ' Spule(n) laden? Die aktuellen Daten werden ersetzt.')) return;
+      state = data; save(); render();
+    }).catch(function () { alert('Die Datei konnte nicht gelesen werden.'); });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
